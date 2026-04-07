@@ -4,11 +4,12 @@ import (
 	"net/http"
 	"os"
 
+	"aubergine/internal/database"
+	"aubergine/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stripe/stripe-go/v76"
 	"github.com/stripe/stripe-go/v76/checkout/session"
-	"aubergine/internal/database"
-	"aubergine/internal/models"
 )
 
 // Initialize Stripe Key
@@ -35,7 +36,7 @@ func CreateCheckoutSession(c *gin.Context) {
 	}
 
 	// In a real app, you would fetch Price IDs dynamically or from env vars
-	priceID := "price_mock_premium_tier" 
+	priceID := "price_mock_premium_tier"
 
 	params := &stripe.CheckoutSessionParams{
 		PaymentMethodTypes: stripe.StringSlice([]string{"card"}),
@@ -46,14 +47,9 @@ func CreateCheckoutSession(c *gin.Context) {
 				Quantity: stripe.Int64(1),
 			},
 		},
-		SuccessURL: stripe.String("http://localhost:8080/success?session_id={CHECKOUT_SESSION_ID}"),
-		CancelURL:  stripe.String("http://localhost:8080/cancel"),
-	}
-
-	if user.StripeID != "" {
-		params.Customer = stripe.String(user.StripeID)
-	} else {
-		params.CustomerEmail = stripe.String(user.Email)
+		SuccessURL:    stripe.String("http://localhost:8080/success?session_id={CHECKOUT_SESSION_ID}"),
+		CancelURL:     stripe.String("http://localhost:8080/cancel"),
+		CustomerEmail: stripe.String(user.Email),
 	}
 
 	s, err := session.New(params)

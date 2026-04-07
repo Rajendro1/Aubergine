@@ -5,9 +5,10 @@ import (
 	"log"
 	"os"
 
+	"aubergine/internal/models"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"aubergine/internal/models"
 )
 
 var DB *gorm.DB
@@ -32,8 +33,11 @@ func ConnectDB() {
 	// Auto-migrate tables
 	err = DB.AutoMigrate(
 		&models.User{},
-		&models.Subscription{},
-		&models.Video{},
+		&models.Plan{},
+		&models.UserSubscription{},
+		&models.Content{},
+		&models.WatchHistory{},
+		&models.ActiveStreamSession{},
 	)
 	if err != nil {
 		log.Fatalf("AutoMigration failed: %v", err)

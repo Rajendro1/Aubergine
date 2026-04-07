@@ -4,8 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"aubergine/internal/auth"
+	"aubergine/internal/database"
+	"aubergine/internal/models"
+
+	"github.com/gin-gonic/gin"
 )
 
 // AuthRequired enforces JWT validation on protected routes
@@ -31,7 +34,6 @@ func AuthRequired() gin.HandlerFunc {
 
 		// Attach claims to request context
 		c.Set("userID", claims.UserID)
-		c.Set("plan", claims.Plan)
 
 		c.Next()
 	}
@@ -56,6 +58,25 @@ func MinimumTier(requiredTier string) gin.HandlerFunc {
 		planStr, ok := userPlan.(string)
 		if !ok || tierRanks[planStr] < tierRanks[requiredTier] {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "upgrade your subscription tier to access this resource"})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// AdminRequired enforces that the user has admin role
+func AdminRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("userID")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		var user models.User
+		if err := database.DB.First(&user, userID).Error; err != nil || user.Role != "admin" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin access required"})
 			return
 		}
 

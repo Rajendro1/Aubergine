@@ -15,6 +15,8 @@ import (
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
+	Name     string `json:"name"`
+	Phone    string `json:"phone"`
 }
 
 func Register(c *gin.Context) {
@@ -40,9 +42,11 @@ func Register(c *gin.Context) {
 
 	// Create User
 	newUser := models.User{
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Plan:     "free",
+		Email:        req.Email,
+		PasswordHash: string(hashedPassword),
+		Name:         req.Name,
+		Phone:        req.Phone,
+		Role:         "user",
 	}
 
 	if err := database.DB.Create(&newUser).Error; err != nil {
@@ -80,14 +84,14 @@ func Login(c *gin.Context) {
 	}
 
 	// Compare passwords
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 
 	// Generate JWT
-	token, err := auth.GenerateToken(user.ID, user.Plan)
+	token, err := auth.GenerateToken(user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
 		return
@@ -96,6 +100,71 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "login successful",
 		"token":   token,
-		"plan":    user.Plan,
+		"user": gin.H{
+			"id":    user.ID,
+			"email": user.Email,
+			"name":  user.Name,
+			"role":  user.Role,
+		},
+	})
+}
+
+func GetProfile(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": user,
+	})
+}
+
+type UpdateProfileRequest struct {
+	Name           string `json:"name"`
+	Phone          string `json:"phone"`
+	Bio            string `json:"bio"`
+	ProfilePicture string `json:"profile_picture"`
+}
+
+func UpdateProfile(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	user.Name = req.Name
+	user.Phone = req.Phone
+	user.Bio = req.Bio
+	user.ProfilePicture = req.ProfilePicture
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "profile updated successfully",
+		"user":    user,
 	})
 }

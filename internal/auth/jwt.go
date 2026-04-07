@@ -12,18 +12,16 @@ import (
 var jwtSecret = []byte(os.Getenv("JwtSecret"))
 
 type Claims struct {
-	UserID uint   `json:"user_id"`
-	Plan   string `json:"plan"`
+	UserID uint `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
 // GenerateToken generates both access and refresh tokens.
-func GenerateToken(userID uint, plan string) (string, error) {
+func GenerateToken(userID uint) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour) // 1 day validity
 
 	claims := &Claims{
 		UserID: userID,
-		Plan:   plan,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
